@@ -5,7 +5,7 @@ import { X, UserPlus, Building, Mail, Phone } from 'lucide-react';
 interface CustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (customer: Customer) => void;
+  onSave: (customer: Customer) => void | Promise<void>;
   initialCustomer?: Customer | null;
 }
 
@@ -21,8 +21,10 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   const [phone, setPhone] = useState(() => initialCustomer?.phone ?? '');
   const [status, setStatus] = useState<CustomerStatus>(() => initialCustomer?.status ?? 'Active');
   const [notes, setNotes] = useState(() => initialCustomer?.notes ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
 
@@ -38,8 +40,16 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
       notes,
     };
 
-    onSave(customer);
-    onClose();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(customer);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the customer.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -52,12 +62,13 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
             <UserPlus size={20} className="text-primary" />
             <h3 className="modal-title">{initialCustomer ? 'Edit Customer Profile' : 'Add New Customer'}</h3>
           </div>
-          <button className="btn-close" onClick={onClose}>
+          <button className="btn-close" onClick={onClose} disabled={isSaving}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
+          {saveError && <p className="modal-save-error" role="alert">{saveError}</p>}
           <div className="form-row-2">
             <div className="form-group">
               <label className="form-label">Contact Name</label>
@@ -143,11 +154,11 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSaving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {initialCustomer ? 'Save Changes' : 'Create Account'}
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving to AWS…' : initialCustomer ? 'Save Changes' : 'Create Account'}
             </button>
           </div>
         </form>

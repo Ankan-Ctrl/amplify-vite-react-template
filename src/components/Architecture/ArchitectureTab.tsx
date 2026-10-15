@@ -33,26 +33,28 @@ const schema = a.schema({
     amount: a.float().required(),
     quantity: a.integer().required(),
     date: a.string().required(),
-    status: a.string().required(), // COMPLETED | PENDING | REFUNDED
+    status: a.enum(["COMPLETED", "PENDING", "REFUNDED"]),
     category: a.string(),
-  }).authorization(allow => [allow.publicApiKey()]),
+  }).authorization(allow => [allow.owner()]),
 
   Expense: a.model({
     description: a.string().required(),
-    category: a.string().required(),
+    category: a.enum(["Operations", "Marketing", "Software", "Payroll", "Inventory", "Utilities", "Other"]),
     amount: a.float().required(),
     date: a.string().required(),
     vendor: a.string(),
     isRecurring: a.boolean(),
-  }).authorization(allow => [allow.publicApiKey()]),
+    notes: a.string(),
+  }).authorization(allow => [allow.owner()]),
 
   Customer: a.model({
     name: a.string().required(),
     email: a.string().required(),
     company: a.string(),
-    status: a.string().required(), // VIP | Active | Lead
+    status: a.enum(["VIP", "Active", "Lead", "Inactive"]),
     totalSpent: a.float(),
-  }).authorization(allow => [allow.publicApiKey()]),
+    notes: a.string(),
+  }).authorization(allow => [allow.owner()]),
 
   Product: a.model({
     name: a.string().required(),
@@ -62,13 +64,14 @@ const schema = a.schema({
     cost: a.float().required(),
     stock: a.integer().required(),
     lowStockThreshold: a.integer(),
-  }).authorization(allow => [allow.publicApiKey()]),
+    description: a.string(),
+  }).authorization(allow => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
-  authorizationModes: { defaultAuthorizationMode: "apiKey" },
+  authorizationModes: { defaultAuthorizationMode: "userPool" },
 });`;
 
   const authSnippet = `// amplify/auth/resource.ts
@@ -146,7 +149,7 @@ defineBackend({
             <span className="node-layer">Presentation Layer</span>
             <h4 className="node-title">React 18 + Vite SPA</h4>
             <p className="node-desc">
-              TypeScript-based dashboard with reactive SVG telemetry charts, instant client filtering, and optimistic state updates.
+              TypeScript dashboard with client-side analytics and forms that read and write owner-protected business records through Amplify Data.
             </p>
             <div className="tech-tags">
               <span className="tech-tag">React 18</span>
@@ -190,12 +193,12 @@ defineBackend({
             <span className="node-layer">Managed API Layer</span>
             <h4 className="node-title">AWS AppSync</h4>
             <p className="node-desc">
-              Serverless GraphQL engine providing schema validation, real-time WebSocket subscriptions, and granular authorization.
+              Serverless GraphQL API validates CRUD requests and enforces Cognito owner authorization for each business record.
             </p>
             <div className="tech-tags">
               <span className="tech-tag">AppSync</span>
               <span className="tech-tag">GraphQL</span>
-              <span className="tech-tag">WebSockets</span>
+              <span className="tech-tag">CRUD API</span>
             </div>
           </div>
 
@@ -212,7 +215,7 @@ defineBackend({
             <span className="node-layer">Persistence Engine</span>
             <h4 className="node-title">Amazon DynamoDB</h4>
             <p className="node-desc">
-              Fully managed NoSQL database with sub-10ms response times, auto-scaling partition throughput, and point-in-time recovery.
+              Amplify Data stores sales, expenses, customers, and products in managed DynamoDB tables.
             </p>
             <div className="tech-tags">
               <span className="tech-tag">DynamoDB</span>
@@ -231,7 +234,7 @@ defineBackend({
             <div>
               <h5 className="sec-title">Amazon Cognito Authentication & Authorization</h5>
               <p className="sec-desc">
-                Secure JWT token verification, fine-grained model-level access rules (`allow.publicApiKey()` or `allow.owner()`), and MFA ready.
+                Cognito sign-in and owner-based model authorization keep each account's records separate.
               </p>
             </div>
           </div>
@@ -264,9 +267,9 @@ defineBackend({
             For business analytics dashboards requiring aggregated numbers across sales, costs, products, and customers:
           </p>
           <ul className="pillar-bullets">
-            <li><strong>Eliminates Over-fetching:</strong> Dashboard requests only needed metric fields instead of massive JSON blobs.</li>
-            <li><strong>Single Round Trip:</strong> Combines sales, expense tallies, and inventory in one query.</li>
-            <li><strong>Live Telemetry:</strong> Uses AppSync WebSockets (<code>client.models.Sale.observeQuery()</code>) to push real-time updates when sales occur.</li>
+            <li><strong>Typed operations:</strong> Amplify Data generates TypeScript clients from the backend schema for CRUD operations.</li>
+            <li><strong>Owner-protected records:</strong> Cognito sign-in scopes each user's data access.</li>
+            <li><strong>Managed persistence:</strong> AppSync resolves model operations to DynamoDB tables.</li>
           </ul>
         </div>
       </div>

@@ -9,7 +9,7 @@ It is designed for small-business owners and operators to understand overall bus
 ## 🚀 Key Highlights & Capabilities
 
 - **Executive Analytics Overview**:
-  - Live KPI cards: Gross Revenue, Operating Expenses, Net Profit Margin %, and Pending Receivables.
+  - KPI cards: Gross Revenue, Operating Expenses, Net Profit Margin %, and Pending Receivables.
   - Interactive SVG time-series charts for Monthly Revenue vs. Expense trends.
   - Category breakdown donut charts for operating costs.
   - Date filtering: Last 7 Days, Last 30 Days, Last 90 Days, Year-to-Date (YTD), and All Time.
@@ -21,9 +21,10 @@ It is designed for small-business owners and operators to understand overall bus
   - **Expense Ledger**: Categorize overhead across Software & Cloud, Payroll, Operations, Marketing, and Inventory, with monthly recurring expense tracking and CSV export.
   - **Customer Directory (CRM)**: Manage enterprise client accounts, tier segmentation (`VIP`, `Active`, `Lead`, `Inactive`), contact info, and lifetime revenue accumulation.
   - **Product & Inventory Catalog**: Track SKUs, selling prices, unit costs, profit margins %, stock counters, and visual replenishment threshold alerts.
-- **Dual Runtime Support**:
-  - **Offline Local PC Demonstration Mode**: Immediate local execution with sample business data saved to browser `localStorage`. Includes a 1-click **Reset Sample Data** button for demonstrations.
-  - **AWS Amplify Gen 2 Cloud Integration**: Production-ready data models and backend definition files ready to deploy to AWS AppSync (GraphQL), Amazon DynamoDB, and Amazon Cognito.
+- **AWS Amplify Gen 2 Cloud Integration**:
+  - Cognito email sign-in, owner-authorized AppSync CRUD operations, and DynamoDB persistence for sales, expenses, customers, and products.
+  - Private file storage: signed-in users can upload, list, download, and delete files in their own Amazon S3 storage path.
+  - Business records are not stored in browser `localStorage`; the dashboard requires a deployed Amplify backend.
 - **AWS Cloud Blueprint & Technical Walkthrough Tab**:
   - Interactive architecture diagram explaining presentation, edge distribution, API orchestration, and persistence layers.
   - Technical talking points for academic, professional, or client presentations.
@@ -55,7 +56,7 @@ BizPulse is architected around modern AWS Serverless patterns:
 ### Why AWS Amplify Gen 2?
 1. **Code-First TypeScript Infrastructure**: No complex CloudFormation JSON/YAML templates. Backend schema is defined in `amplify/data/resource.ts` and type-checked via `tsc`.
 2. **End-to-End Type Safety**: Frontend data client inherits TypeScript interfaces directly from backend models.
-3. **AppSync Real-Time GraphQL**: Dashboard receives instant updates via WebSockets with `client.models.<Entity>.observeQuery()`.
+3. **AppSync GraphQL CRUD**: The dashboard creates, reads, updates, and deletes owner-authorized records through the generated Amplify Data client.
 4. **Isolated Sandboxes**: Fast developer cloud environments spun up with `npx ampx sandbox`.
 
 ---
@@ -73,10 +74,16 @@ npm install --legacy-peer-deps
 ```
 
 ### 2. Run Local Development Server
+Generate backend outputs first using an AWS account and credentials:
+```bash
+npx ampx sandbox
+```
+Keep the sandbox process running while developing; it generates `amplify_outputs.json`.
+
 ```bash
 npm run dev
 ```
-Open your browser at `http://localhost:5173` to explore BizPulse with pre-loaded realistic sample data.
+Open your browser at `http://localhost:5173` and sign in with a Cognito account to access its cloud records. This app no longer uses the old browser demo data, and existing `localStorage` records are not migrated to AWS.
 
 ### 3. Build & Type Check
 ```bash
@@ -92,7 +99,7 @@ npm run lint
 
 ## 🌐 Deploying to AWS Cloud
 
-To connect BizPulse to a live AWS backend:
+To deploy BizPulse to an AWS backend:
 
 1. **Configure AWS Credentials**:
    ```bash
@@ -105,8 +112,14 @@ To connect BizPulse to a live AWS backend:
    ```
    This will synthesize the AWS CDK constructs, deploy AppSync, DynamoDB tables, and Cognito pools to your AWS account, and automatically generate `amplify_outputs.json`.
 
-3. **Deploy Fullstack App to Amplify Hosting**:
-   Connect your Git repository to the [AWS Amplify Console](https://console.aws.amazon.com/amplify) for automatic continuous deployment (CI/CD) on every push.
+3. **Deploy with Amplify Hosting**:
+   Connect your Git repository to the [AWS Amplify Console](https://console.aws.amazon.com/amplify) for automatic continuous deployment (CI/CD) on every push. Amplify deploys the backend, generates `amplify_outputs.json`, and then builds the React frontend.
+
+### Private file storage
+
+Users sign in through Cognito. Sales, expenses, customers, and products are accessed through the generated Amplify Data client and stored in DynamoDB; model authorization restricts records to their owner. The **File Storage** area uses Amplify Storage backed by Amazon S3, with access restricted to each user's own path. AppSync/Data/S3 calls require a successful backend deployment; the app displays a setup message rather than falling back to browser storage if its Amplify configuration is missing.
+
+Each Cognito user sees only records created under their own account. Existing local demo records are not copied into DynamoDB automatically.
 
 ---
 
@@ -119,6 +132,8 @@ amplify-vite-react-template/
 │   │   └── resource.ts
 │   ├── data/                      # AppSync GraphQL schema & DynamoDB models (Sale, Expense, Customer, Product)
 │   │   └── resource.ts
+│   ├── storage/                   # Private, per-user Amazon S3 file storage
+│   │   └── resource.ts
 │   └── backend.ts                 # Main CDK backend definition
 ├── src/
 │   ├── components/
@@ -130,9 +145,10 @@ amplify-vite-react-template/
 │   │   ├── Expenses/              # Operating expense ledger & categories
 │   │   ├── Inventory/             # Product catalog & stock replenishment alerts
 │   │   ├── Modals/                # Modals for creating/editing Sales, Expenses, Customers, Products
-│   │   └── Sales/                 # Revenue transactions ledger & status filters
-│   ├── data/                      # Realistic initial business sample dataset
-│   ├── services/                  # Analytics computation engine & LocalStorage persistence layer
+│   │   ├── Sales/                 # Revenue transactions ledger & status filters
+│   │   └── Storage/               # Authenticated Amazon S3 file manager
+│   ├── data/                      # Legacy illustrative sample dataset (not loaded by the app)
+│   ├── services/                  # Analytics, Amplify Data, and CSV export services
 │   ├── types/                     # Central TypeScript interfaces
 │   ├── App.css                    # Modern dark SaaS design system
 │   ├── App.tsx                    # Root application component

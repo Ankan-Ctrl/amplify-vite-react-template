@@ -8,6 +8,7 @@ import {
   Package,
   Cloud,
   FileSpreadsheet,
+  FolderOpen,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -59,6 +60,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Package,
       badge: lowStockCount > 0 ? `${lowStockCount} low` : null,
       badgeType: 'danger',
+    },
+    {
+      id: 'files' as ActiveTab,
+      label: 'File Storage',
+      icon: FolderOpen,
+      badge: null,
     },
     {
       id: 'architecture' as ActiveTab,

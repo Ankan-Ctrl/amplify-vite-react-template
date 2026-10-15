@@ -5,7 +5,7 @@ import { X, Package, Tag, DollarSign, Layers } from 'lucide-react';
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (product: Product) => void;
+  onSave: (product: Product) => void | Promise<void>;
   initialProduct?: Product | null;
 }
 
@@ -23,8 +23,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [stock, setStock] = useState<number>(() => initialProduct?.stock ?? 10);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(() => initialProduct?.lowStockThreshold ?? 5);
   const [description, setDescription] = useState(() => initialProduct?.description ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !sku || price < 0) return;
 
@@ -40,8 +42,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       description,
     };
 
-    onSave(product);
-    onClose();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(product);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the product.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -54,12 +64,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <Package size={20} className="text-primary" />
             <h3 className="modal-title">{initialProduct ? 'Edit Product Item' : 'Add New Product / SKU'}</h3>
           </div>
-          <button className="btn-close" onClick={onClose}>
+          <button className="btn-close" onClick={onClose} disabled={isSaving}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
+          {saveError && <p className="modal-save-error" role="alert">{saveError}</p>}
           <div className="form-group">
             <label className="form-label">Item / Service Name</label>
             <input
@@ -176,11 +187,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSaving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {initialProduct ? 'Save Changes' : 'Add to Catalog'}
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving to AWS…' : initialProduct ? 'Save Changes' : 'Add to Catalog'}
             </button>
           </div>
         </form>

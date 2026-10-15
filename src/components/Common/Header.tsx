@@ -1,17 +1,19 @@
 import React from 'react';
-import { Activity, RotateCcw, Cloud, ShieldCheck } from 'lucide-react';
+import { Activity, Cloud, LogOut, ShieldCheck } from 'lucide-react';
 import { ActiveTab } from '../../types';
 
 interface HeaderProps {
   activeTab: ActiveTab;
   onNavigateTab: (tab: ActiveTab) => void;
-  onResetDemoData: () => void;
+  userEmail: string;
+  onSignOut: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onNavigateTab,
-  onResetDemoData,
+  userEmail,
+  onSignOut,
 }) => {
   return (
     <header className="app-header">
@@ -31,8 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="cloud-indicator-pill" onClick={() => onNavigateTab('architecture')}>
           <span className="status-dot-pulse"></span>
           <Cloud size={14} className="cloud-icon" />
-          <span className="cloud-status-text">Amplify Gen 2 / DynamoDB Ready</span>
-          <span className="env-badge">Local PC Demo</span>
+          <span className="cloud-status-text">AWS backend configured</span>
+          <span className="env-badge">Cloud</span>
         </div>
       </div>
 
@@ -46,13 +48,14 @@ export const Header: React.FC<HeaderProps> = ({
           <span>AWS Architecture</span>
         </button>
 
+        <span className="header-user-email" title={userEmail}>{userEmail}</span>
         <button
           className="btn btn-ghost btn-sm text-muted flex-align"
-          onClick={onResetDemoData}
-          title="Reset all modified figures back to standard sample dataset"
+          onClick={onSignOut}
+          title="Sign out of BizPulse"
         >
-          <RotateCcw size={14} />
-          <span>Reset Sample Data</span>
+          <LogOut size={14} />
+          <span>Sign out</span>
         </button>
       </div>
     </header>

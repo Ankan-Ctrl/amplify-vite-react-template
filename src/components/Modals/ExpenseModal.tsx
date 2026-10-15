@@ -5,7 +5,7 @@ import { X, TrendingDown, Calendar, Tag, Building2, Repeat } from 'lucide-react'
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (expense: Expense) => void;
+  onSave: (expense: Expense) => void | Promise<void>;
   initialExpense?: Expense | null;
 }
 
@@ -22,8 +22,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [vendor, setVendor] = useState(() => initialExpense?.vendor ?? '');
   const [isRecurring, setIsRecurring] = useState(() => initialExpense?.isRecurring ?? false);
   const [notes, setNotes] = useState(() => initialExpense?.notes ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description || amount <= 0) return;
 
@@ -38,8 +40,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       notes,
     };
 
-    onSave(expense);
-    onClose();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(expense);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the expense.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -52,12 +62,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <TrendingDown size={20} className="text-danger" />
             <h3 className="modal-title">{initialExpense ? 'Edit Expense Record' : 'Log New Expense'}</h3>
           </div>
-          <button className="btn-close" onClick={onClose}>
+          <button className="btn-close" onClick={onClose} disabled={isSaving}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
+          {saveError && <p className="modal-save-error" role="alert">{saveError}</p>}
           <div className="form-group">
             <label className="form-label">Expense Description</label>
             <input
@@ -161,11 +172,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSaving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {initialExpense ? 'Save Changes' : 'Log Expense'}
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving to AWS…' : initialExpense ? 'Save Changes' : 'Log Expense'}
             </button>
           </div>
         </form>

@@ -5,7 +5,7 @@ import { X, DollarSign, Calendar, Tag, User, Package } from 'lucide-react';
 interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (sale: Sale) => void;
+  onSave: (sale: Sale) => void | Promise<void>;
   initialSale?: Sale | null;
   customers: Customer[];
   products: Product[];
@@ -33,6 +33,8 @@ export const SaleModal: React.FC<SaleModalProps> = ({
   const [status, setStatus] = useState<SaleStatus>(() => initialSale?.status ?? 'COMPLETED');
   const [category, setCategory] = useState(() => initialSale?.category ?? (products[0]?.category || 'Consulting'));
   const [notes, setNotes] = useState(() => initialSale?.notes ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleProductSelect = (selectedName: string) => {
     setProductName(selectedName);
@@ -51,7 +53,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName || !productName || amount <= 0) return;
 
@@ -67,8 +69,16 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       notes,
     };
 
-    onSave(sale);
-    onClose();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(sale);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the sale.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -81,12 +91,13 @@ export const SaleModal: React.FC<SaleModalProps> = ({
             <DollarSign size={20} className="text-primary" />
             <h3 className="modal-title">{initialSale ? 'Edit Sale Transaction' : 'Record New Sale'}</h3>
           </div>
-          <button className="btn-close" onClick={onClose}>
+          <button className="btn-close" onClick={onClose} disabled={isSaving}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
+          {saveError && <p className="modal-save-error" role="alert">{saveError}</p>}
           <div className="form-group">
             <label className="form-label flex-align">
               <User size={14} className="text-muted" />
@@ -213,11 +224,11 @@ export const SaleModal: React.FC<SaleModalProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSaving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {initialSale ? 'Save Changes' : 'Record Transaction'}
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving to AWS…' : initialSale ? 'Save Changes' : 'Record Transaction'}
             </button>
           </div>
         </form>

@@ -16,22 +16,31 @@ const schema = a.schema({
       amount: a.float().required(),
       quantity: a.integer().required(),
       date: a.string().required(),
-      status: a.string().required(), // 'COMPLETED' | 'PENDING' | 'REFUNDED'
+      status: a.enum(["COMPLETED", "PENDING", "REFUNDED"]),
       category: a.string(),
       notes: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [allow.owner()]),
 
   Expense: a
     .model({
       description: a.string().required(),
-      category: a.string().required(), // 'Operations' | 'Marketing' | 'Software' | 'Payroll' | 'Inventory' | 'Utilities'
+      category: a.enum([
+        "Operations",
+        "Marketing",
+        "Software",
+        "Payroll",
+        "Inventory",
+        "Utilities",
+        "Other",
+      ]),
       amount: a.float().required(),
       date: a.string().required(),
       vendor: a.string(),
       isRecurring: a.boolean(),
+      notes: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [allow.owner()]),
 
   Customer: a
     .model({
@@ -39,11 +48,12 @@ const schema = a.schema({
       email: a.string().required(),
       phone: a.string(),
       company: a.string(),
-      status: a.string().required(), // 'VIP' | 'Active' | 'Lead' | 'Inactive'
+      status: a.enum(["VIP", "Active", "Lead", "Inactive"]),
       totalSpent: a.float(),
       joinDate: a.string(),
+      notes: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [allow.owner()]),
 
   Product: a
     .model({
@@ -54,8 +64,9 @@ const schema = a.schema({
       cost: a.float().required(),
       stock: a.integer().required(),
       lowStockThreshold: a.integer(),
+      description: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -63,9 +74,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "apiKey",
-    apiKeyAuthorizationMode: {
-      expiresInDays: 30,
-    },
+    defaultAuthorizationMode: "userPool",
   },
 });

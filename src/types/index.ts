@@ -62,7 +62,14 @@ export interface Product {
 
 export type DateFilterRange = '7d' | '30d' | '90d' | 'ytd' | 'all';
 
-export type ActiveTab = 'overview' | 'sales' | 'expenses' | 'customers' | 'inventory' | 'architecture';
+export type ActiveTab =
+  | 'overview'
+  | 'sales'
+  | 'expenses'
+  | 'customers'
+  | 'inventory'
+  | 'files'
+  | 'architecture';
 
 export interface BusinessSummary {
   totalRevenue: number;

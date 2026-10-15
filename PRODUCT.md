@@ -20,14 +20,16 @@ The product's distinctive position is undecided. The initial experience should d
 
 ## Operating Context
 
-The first version should run locally on a PC with realistic general small-business sample data. A user should be able to demonstrate the dashboard and edit records without first deploying cloud infrastructure.
+The web app is hosted with AWS Amplify and requires a deployed Amplify backend. Developers can run it locally after deploying an Amplify sandbox and generating `amplify_outputs.json`. Users authenticate with Cognito before accessing their own cloud records.
 
 ## Capabilities and Constraints
 
 - The first dashboard should present business analytics and support management of sales, expenses, customers, and products.
-- The first version uses sample data and browser storage; AWS Amplify persistence is the intended next step.
+- Sales, expenses, customers, and products are persisted through Amplify Data (AppSync and DynamoDB), with owner-scoped authorization.
+- Private document storage uses Amplify Storage (Amazon S3) and per-user paths.
+- The dashboard does not fall back to browser storage; existing sample data is not automatically imported.
 - The repository already uses React, Vite, TypeScript, and AWS Amplify.
-- Demo figures are illustrative and must be identified as sample data rather than presented as verified business results.
+- Empty accounts start without business records; displayed analytics reflect the signed-in user's cloud data.
 
 ## Brand Commitments
 
@@ -35,11 +37,11 @@ The product name is BizPulse.
 
 ## Evidence on Hand
 
-The repository contains an AWS Amplify React/Vite starter, including email authentication and a Todo data model. It contains no real business data, customer evidence, testimonials, or product-specific visual identity.
+The repository contains a React/Vite app with Amplify Gen 2 authentication, owner-authorized AppSync data models, and per-user S3 storage definitions. It contains no real business data, customer evidence, testimonials, or product-specific visual identity.
 
 ## Product Principles
 
 - Make business performance understandable at a glance.
 - Keep the core records for day-to-day business management accessible alongside analytics.
-- Make demo data and its limitations transparent.
-- Keep the first version usable without cloud deployment while preserving a clear path to Amplify persistence.
+- Keep each user's business records private to their authenticated account.
+- Report cloud loading and save failures instead of showing local-only success.

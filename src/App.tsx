@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, useMemo } from 'react';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 import './App.css';
 import {
   Sale,
@@ -8,7 +9,8 @@ import {
   ActiveTab,
   DateFilterRange,
 } from './types';
-import { storageService } from './services/storageService';
+import { businessDataService } from './services/businessDataService';
+import { csvExportService } from './services/csvExportService';
 import { AnalyticsService } from './services/analyticsService';
 import { Header } from './components/Common/Header';
 import { Sidebar } from './components/Common/Sidebar';
@@ -19,17 +21,49 @@ import { ExpensesTab } from './components/Expenses/ExpensesTab';
 import { CustomersTab } from './components/Customers/CustomersTab';
 import { InventoryTab } from './components/Inventory/InventoryTab';
 import { ArchitectureTab } from './components/Architecture/ArchitectureTab';
+const FilesTab = lazy(() =>
+  import('./components/Storage/FilesTab').then(({ FilesTab: Component }) => ({
+    default: Component,
+  }))
+);
 import { SaleModal } from './components/Modals/SaleModal';
 import { ExpenseModal } from './components/Modals/ExpenseModal';
 import { CustomerModal } from './components/Modals/CustomerModal';
 import { ProductModal } from './components/Modals/ProductModal';
 
 function App() {
-  // Master state synchronized with local storage
-  const [sales, setSales] = useState<Sale[]>(() => storageService.getSales());
-  const [expenses, setExpenses] = useState<Expense[]>(() => storageService.getExpenses());
-  const [customers, setCustomers] = useState<Customer[]>(() => storageService.getCustomers());
-  const [products, setProducts] = useState<Product[]>(() => storageService.getProducts());
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+  const [recordsError, setRecordsError] = useState<string | null>(null);
+  const { user, signOut } = useAuthenticator((context) => [context.user]);
+
+  const loadRecords = useCallback(async () => {
+    setIsLoadingRecords(true);
+    setRecordsError(null);
+    try {
+      const [loadedSales, loadedExpenses, loadedCustomers, loadedProducts] = await Promise.all([
+        businessDataService.listSales(),
+        businessDataService.listExpenses(),
+        businessDataService.listCustomers(),
+        businessDataService.listProducts(),
+      ]);
+      setSales(loadedSales);
+      setExpenses(loadedExpenses);
+      setCustomers(loadedCustomers);
+      setProducts(loadedProducts);
+    } catch (error) {
+      setRecordsError(error instanceof Error ? error.message : 'Unable to load your AWS records.');
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRecords();
+  }, [loadRecords]);
 
   // UI state
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -87,69 +121,151 @@ function App() {
     return sales.filter((s) => s.status === 'PENDING').length;
   }, [sales]);
 
-  // --- CRUD HANDLERS ---
-  const handleSaveSale = (sale: Sale) => {
-    const saved = storageService.saveSale(sale);
-    setSales(storageService.getSales());
-    setCustomers(storageService.getCustomers());
-    addToast('success', `Sale of $${saved.amount.toLocaleString()} saved.`);
+  const syncCustomerSpend = async (customerIdentifier: string, currentSales: Sale[]) => {
+    const currentCustomers = await businessDataService.listCustomers();
+    const customer = currentCustomers.find(
+      (record) =>
+        customerIdentifier.includes(record.name) ||
+        (record.company && customerIdentifier.includes(record.company))
+    );
+    if (!customer) return;
+
+    const totalSpent = currentSales
+      .filter((record) => record.status === 'COMPLETED' && record.customerName.includes(customerIdentifier))
+      .reduce((total, record) => total + record.amount, 0);
+    let status = customer.status;
+    if (totalSpent >= 7500) status = 'VIP';
+    else if (totalSpent > 0 && status === 'Lead') status = 'Active';
+
+    const savedCustomer = await businessDataService.saveCustomer(
+      { ...customer, totalSpent, status },
+      true
+    );
+    setCustomers((current) =>
+      current.map((record) => (record.id === savedCustomer.id ? savedCustomer : record))
+    );
   };
 
-  const handleDeleteSale = (id: string) => {
-    storageService.deleteSale(id);
-    setSales(storageService.getSales());
-    setCustomers(storageService.getCustomers());
-    addToast('info', 'Sale record removed.');
+  const handleSaveSale = async (sale: Sale) => {
+    try {
+      const exists = sales.some((record) => record.id === sale.id);
+      const saved = await businessDataService.saveSale(sale, exists);
+      const updatedSales = exists
+        ? sales.map((record) => (record.id === saved.id ? saved : record))
+        : [saved, ...sales];
+      setSales(updatedSales);
+      addToast('success', `Sale of $${saved.amount.toLocaleString()} saved to AWS.`);
+      try {
+        await syncCustomerSpend(saved.customerName, updatedSales);
+      } catch (error) {
+        addToast('error', `Sale saved, but customer lifetime spend was not updated: ${error instanceof Error ? error.message : 'AWS request failed.'}`);
+      }
+    } catch (error) {
+      addToast('error', `Could not save sale to AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+      throw error;
+    }
   };
 
-  const handleSaveExpense = (expense: Expense) => {
-    const saved = storageService.saveExpense(expense);
-    setExpenses(storageService.getExpenses());
-    addToast('success', `Expense of $${saved.amount.toLocaleString()} logged.`);
+  const handleDeleteSale = async (id: string) => {
+    const target = sales.find((record) => record.id === id);
+    try {
+      await businessDataService.deleteSale(id);
+      const updatedSales = sales.filter((record) => record.id !== id);
+      setSales(updatedSales);
+      addToast('info', 'Sale record removed from AWS.');
+      if (target) {
+        try {
+          await syncCustomerSpend(target.customerName, updatedSales);
+        } catch (error) {
+          addToast('error', `Sale deleted, but customer lifetime spend was not updated: ${error instanceof Error ? error.message : 'AWS request failed.'}`);
+        }
+      }
+    } catch (error) {
+      addToast('error', `Could not delete sale from AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+    }
   };
 
-  const handleDeleteExpense = (id: string) => {
-    storageService.deleteExpense(id);
-    setExpenses(storageService.getExpenses());
-    addToast('info', 'Expense record removed.');
+  const handleSaveExpense = async (expense: Expense) => {
+    try {
+      const saved = await businessDataService.saveExpense(
+        expense,
+        expenses.some((record) => record.id === expense.id)
+      );
+      setExpenses((current) =>
+        current.some((record) => record.id === saved.id)
+          ? current.map((record) => (record.id === saved.id ? saved : record))
+          : [saved, ...current]
+      );
+      addToast('success', `Expense of $${saved.amount.toLocaleString()} saved to AWS.`);
+    } catch (error) {
+      addToast('error', `Could not save expense to AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+      throw error;
+    }
   };
 
-  const handleSaveCustomer = (customer: Customer) => {
-    storageService.saveCustomer(customer);
-    setCustomers(storageService.getCustomers());
-    addToast('success', `Customer profile "${customer.name}" updated.`);
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await businessDataService.deleteExpense(id);
+      setExpenses((current) => current.filter((record) => record.id !== id));
+      addToast('info', 'Expense record removed from AWS.');
+    } catch (error) {
+      addToast('error', `Could not delete expense from AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+    }
   };
 
-  const handleDeleteCustomer = (id: string) => {
-    storageService.deleteCustomer(id);
-    setCustomers(storageService.getCustomers());
-    addToast('info', 'Customer profile removed.');
+  const handleSaveCustomer = async (customer: Customer) => {
+    try {
+      const saved = await businessDataService.saveCustomer(
+        customer,
+        customers.some((record) => record.id === customer.id)
+      );
+      setCustomers((current) =>
+        current.some((record) => record.id === saved.id)
+          ? current.map((record) => (record.id === saved.id ? saved : record))
+          : [saved, ...current]
+      );
+      addToast('success', `Customer profile "${saved.name}" saved to AWS.`);
+    } catch (error) {
+      addToast('error', `Could not save customer to AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+      throw error;
+    }
   };
 
-  const handleSaveProduct = (product: Product) => {
-    storageService.saveProduct(product);
-    setProducts(storageService.getProducts());
-    addToast('success', `Product "${product.name}" saved in catalog.`);
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      await businessDataService.deleteCustomer(id);
+      setCustomers((current) => current.filter((record) => record.id !== id));
+      addToast('info', 'Customer profile removed from AWS.');
+    } catch (error) {
+      addToast('error', `Could not delete customer from AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+    }
   };
 
-  const handleDeleteProduct = (id: string) => {
-    storageService.deleteProduct(id);
-    setProducts(storageService.getProducts());
-    addToast('info', 'Product removed from catalog.');
+  const handleSaveProduct = async (product: Product) => {
+    try {
+      const saved = await businessDataService.saveProduct(
+        product,
+        products.some((record) => record.id === product.id)
+      );
+      setProducts((current) =>
+        current.some((record) => record.id === saved.id)
+          ? current.map((record) => (record.id === saved.id ? saved : record))
+          : [saved, ...current]
+      );
+      addToast('success', `Product "${saved.name}" saved to AWS.`);
+    } catch (error) {
+      addToast('error', `Could not save product to AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
+      throw error;
+    }
   };
 
-  const handleResetDemoData = () => {
-    if (
-      window.confirm(
-        'Reset all BizPulse records back to original sample dataset? Any unsaved custom entries will be restored to defaults.'
-      )
-    ) {
-      storageService.resetToSampleData();
-      setSales(storageService.getSales());
-      setExpenses(storageService.getExpenses());
-      setCustomers(storageService.getCustomers());
-      setProducts(storageService.getProducts());
-      addToast('info', 'Sample dataset reloaded successfully.');
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await businessDataService.deleteProduct(id);
+      setProducts((current) => current.filter((record) => record.id !== id));
+      addToast('info', 'Product removed from AWS.');
+    } catch (error) {
+      addToast('error', `Could not delete product from AWS: ${error instanceof Error ? error.message : 'Request failed.'}`);
     }
   };
 
@@ -158,7 +274,8 @@ function App() {
       <Header
         activeTab={activeTab}
         onNavigateTab={setActiveTab}
-        onResetDemoData={handleResetDemoData}
+        userEmail={user.signInDetails?.loginId ?? user.username}
+        onSignOut={() => void signOut()}
       />
 
       <div className="app-main-layout">
@@ -168,16 +285,28 @@ function App() {
           lowStockCount={lowStockCount}
           pendingSalesCount={pendingSalesCount}
           onExportSalesCSV={() => {
-            storageService.exportSalesToCSV();
+            csvExportService.exportSales(sales);
             addToast('success', 'Sales CSV exported.');
           }}
           onExportExpensesCSV={() => {
-            storageService.exportExpensesToCSV();
+            csvExportService.exportExpenses(expenses);
             addToast('success', 'Expenses CSV exported.');
           }}
         />
 
         <main className="app-content-area">
+          {isLoadingRecords ? (
+            <p role="status">Loading your AWS business records…</p>
+          ) : recordsError ? (
+            <section role="alert" className="cloud-load-error">
+              <h2>Could not load your AWS records</h2>
+              <p>{recordsError}</p>
+              <button type="button" className="btn btn-outline" onClick={() => void loadRecords()}>
+                Try again
+              </button>
+            </section>
+          ) : (
+            <>
           {activeTab === 'overview' && (
             <OverviewTab
               sales={sales}
@@ -211,7 +340,7 @@ function App() {
               }}
               onDeleteSale={handleDeleteSale}
               onExportCSV={() => {
-                storageService.exportSalesToCSV();
+                csvExportService.exportSales(sales);
                 addToast('success', 'Sales ledger exported as CSV.');
               }}
             />
@@ -226,7 +355,7 @@ function App() {
               }}
               onDeleteExpense={handleDeleteExpense}
               onExportCSV={() => {
-                storageService.exportExpensesToCSV();
+                csvExportService.exportExpenses(expenses);
                 addToast('success', 'Expense ledger exported as CSV.');
               }}
             />
@@ -255,6 +384,13 @@ function App() {
           )}
 
           {activeTab === 'architecture' && <ArchitectureTab />}
+          {activeTab === 'files' && (
+            <Suspense fallback={<p role="status">Loading AWS file storage…</p>}>
+              <FilesTab />
+            </Suspense>
+          )}
+            </>
+          )}
         </main>
       </div>
 

@@ -142,6 +142,70 @@
   gap: 12px;
 }
 
+.header-user-email {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backend-required {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.backend-required section {
+  max-width: 560px;
+  padding: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.backend-required h1,
+.cloud-load-error h2 {
+  margin-bottom: 10px;
+  color: var(--text-main);
+  font-size: 22px;
+}
+
+.backend-required p,
+.cloud-load-error p {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.modal-save-error {
+  padding: 10px 12px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+@media (max-width: 850px) {
+  .header-user-email {
+    display: none;
+  }
+}
+
+.cloud-load-error {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 640px;
+  padding: 22px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+}
+
 /* --- SIDEBAR --- */
 .app-sidebar {
   width: 240px;
