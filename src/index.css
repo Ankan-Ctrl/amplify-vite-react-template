@@ -1,65 +1,96 @@
-body {
-  margin: 0;
-  background: linear-gradient(180deg, rgb(117, 81, 194), rgb(255, 255, 255));
-  display: flex;
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  height: 100vh;
-  width: 100vw;
-  justify-content: center;
-  align-items: center;
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  /* Visual Identity Tokens */
+  --bg-primary: #F6F5EF;       /* Warm ivory main canvas */
+  --bg-secondary: #FFFFFF;     /* Crisp white container surfaces */
+  --bg-card: #FFFFFF;          /* Pure white card backgrounds */
+  --bg-card-hover: #FAF9F5;    /* Subtle hover warm ivory */
+  --bg-subtle: #F0EFE8;        /* Soft ivory secondary wash */
+  --bg-sage: #DCE7D7;          /* Muted sage accent token */
+  
+  --border-color: #E2E3DC;     /* Soft grey borders and dividers */
+  --border-subtle: #ECEBE4;    /* Fine subtle divider */
+  
+  --text-main: #29352D;        /* Charcoal typography */
+  --text-muted: #57655B;       /* Secondary charcoal */
+  --text-dim: #7C8B80;         /* Tertiary / caption */
+
+  /* Deliberate, grounded actions - Charcoal & Deep Forest */
+  --color-primary: #29352D;    /* Solid charcoal for primary emphasis */
+  --color-primary-hover: #18201B;
+  --color-primary-bg: #EAECE5;
+
+  /* Performance / Positive - Deep Forest with Muted Sage Wash */
+  --color-success: #295738;
+  --color-success-bg: #DCE7D7;
+  --color-success-border: #C8D8C2;
+
+  /* Operational Warnings / Pending - Grounded Amber */
+  --color-warning: #875716;
+  --color-warning-bg: #F6EDE0;
+  --color-warning-border: #EADBCA;
+
+  /* Negative / Expenses / Cost - Muted Terracotta */
+  --color-danger: #963A3A;
+  --color-danger-bg: #FBEBE9;
+  --color-danger-border: #F1D4D1;
+
+  /* Structural Radii - Clean, understated, not bubbly */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Elevations - Crisp thin borders instead of heavy drop-shadows */
+  --shadow-sm: 0 1px 2px rgba(41, 53, 45, 0.04);
+  --shadow-md: 0 2px 5px rgba(41, 53, 45, 0.05);
+  --shadow-lg: 0 4px 12px rgba(41, 53, 45, 0.06);
+  --shadow-card: 0 1px 3px rgba(41, 53, 45, 0.03);
 }
 
-main {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
-  color: white;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  border: none;
+  outline: none;
+  font-feature-settings: inherit;
 }
 
-ul {
-  padding-inline-start: 0;
-  margin-block-start: 0;
-  margin-block-end: 0;
-  list-style-type: none;
-  display: flex;
-  flex-direction: column;
-  margin: 8px 0;
-  border: 1px solid black;
-  gap: 1px;
-  background-color: black;
-  border-radius: 8px;
-  overflow: auto;
-}
-
-li {
-  background-color: white;
-  padding: 8px;
-}
-
-li:hover {
-  background: #dadbf9;
+input, select, textarea {
+  font-family: inherit;
+  color: inherit;
 }
 
 a {
-  font-weight: 800;
-  text-decoration: none;
+  color: var(--text-main);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* Numeric tabular layout utility */
+.tabular-nums, .metric-value, .cell-amount, .ribbon-val, .legend-amount {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
